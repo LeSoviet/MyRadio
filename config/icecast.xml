@@ -1,0 +1,115 @@
+<?xml version="1.0"?>
+<icecast>
+    <!-- Información del servidor -->
+    <location>MyRadio Station</location>
+    <admin>admin@myradio.local</admin>
+    <hostname>localhost</hostname>
+    
+    <!-- Límites del servidor -->
+    <limits>
+        <clients>100</clients>
+        <sources>5</sources>
+        <queue-size>524288</queue-size>
+        <client-timeout>30</client-timeout>
+        <header-timeout>15</header-timeout>
+        <source-timeout>10</source-timeout>
+        <burst-on-connect>1</burst-on-connect>
+        <burst-size>65535</burst-size>
+    </limits>
+
+    <!-- Autenticación -->
+    <authentication>
+        <!-- Contraseña para fuentes de audio (Winamp/AIMP) -->
+        <source-password>myradio2024</source-password>
+        <!-- Contraseña para relay servers -->
+        <relay-password>myradio2024</relay-password>
+        <!-- Usuario administrador -->
+        <admin-user>admin</admin-user>
+        <!-- Contraseña administrador -->
+        <admin-password>admin2024</admin-password>
+    </authentication>
+
+    <!-- Puerto de escucha -->
+    <listen-socket>
+        <port>8000</port>
+        <!-- Opcional: bind a IP específica -->
+        <!-- <bind-address>127.0.0.1</bind-address> -->
+    </listen-socket>
+
+    <!-- Configuración de mount points -->
+    <mount type="normal">
+        <mount-name>/stream</mount-name>
+        <password>myradio2024</password>
+        <max-listeners>50</max-listeners>
+        <dump-file>/tmp/dump-stream.mp3</dump-file>
+        <burst-size>65536</burst-size>
+        <fallback-mount>/silence.mp3</fallback-mount>
+        <fallback-override>1</fallback-override>
+        <fallback-when-full>1</fallback-when-full>
+        <intro>/intro.mp3</intro>
+        <hidden>0</hidden>
+        <public>1</public>
+        <stream-name>MyRadio Live Stream</stream-name>
+        <stream-description>Tu estación de radio favorita</stream-description>
+        <stream-url>http://localhost:3000</stream-url>
+        <genre>Various</genre>
+        <bitrate>128</bitrate>
+        <type>audio/mpeg</type>
+        <subtype>mp3</subtype>
+    </mount>
+
+    <!-- Mount point alternativo para calidad alta -->
+    <mount type="normal">
+        <mount-name>/stream-hq</mount-name>
+        <password>myradio2024</password>
+        <max-listeners>25</max-listeners>
+        <burst-size>65536</burst-size>
+        <hidden>0</hidden>
+        <public>1</public>
+        <stream-name>MyRadio HQ Stream</stream-name>
+        <stream-description>MyRadio en alta calidad</stream-description>
+        <stream-url>http://localhost:3000</stream-url>
+        <genre>Various</genre>
+        <bitrate>320</bitrate>
+        <type>audio/mpeg</type>
+        <subtype>mp3</subtype>
+    </mount>
+
+    <!-- Habilitar servicio de archivos -->
+    <fileserve>1</fileserve>
+
+    <!-- Rutas del sistema -->
+    <paths>
+        <!-- Directorio base de Icecast -->
+        <basedir>./icecast</basedir>
+        <!-- Directorio de logs -->
+        <logdir>./icecast/logs</logdir>
+        <!-- Directorio web -->
+        <webroot>./icecast/web</webroot>
+        <!-- Directorio admin -->
+        <adminroot>./icecast/admin</adminroot>
+        <!-- Alias para página principal -->
+        <alias source="/" destination="/status.xsl"/>
+    </paths>
+
+    <!-- Configuración de logging -->
+    <logging>
+        <accesslog>access.log</accesslog>
+        <errorlog>error.log</errorlog>
+        <!-- Nivel de log: 1=error, 2=warn, 3=info, 4=debug -->
+        <loglevel>3</loglevel>
+        <!-- Tamaño máximo de log en KB -->
+        <logsize>10000</logsize>
+        <!-- Archivar logs antiguos -->
+        <logarchive>1</logarchive>
+    </logging>
+
+    <!-- Configuración de seguridad -->
+    <security>
+        <chroot>0</chroot>
+        <changeowner>
+            <user>icecast</user>
+            <group>icecast</group>
+        </changeowner>
+    </security>
+</icecast>
