@@ -1,0 +1,17 @@
+{
+  "name": "myradio-scripts",
+  "version": "1.0.0",
+  "description": "Scripts de sincronización para MyRadio",
+  "main": "sync-icecast.js",
+  "scripts": {
+    "sync": "node sync-icecast.js",
+    "sync:dev": "nodemon sync-icecast.js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": ["radio", "icecast", "streaming", "sync"],
+  "author": "MyRadio Team",
+  "license": "MIT"
+}

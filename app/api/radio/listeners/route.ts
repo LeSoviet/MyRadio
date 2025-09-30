@@ -1,39 +1,77 @@
 import { NextResponse } from "next/server"
+import { promises as fs } from 'fs'
+import path from 'path'
 
-// In-memory listeners state
-const listeners = [
-  { id: 1, name: "Carlos M.", avatar: "CM", connected: true },
-  { id: 2, name: "Ana García", avatar: "AG", connected: true },
-  { id: 3, name: "Luis Pérez", avatar: "LP", connected: true },
-  { id: 4, name: "María S.", avatar: "MS", connected: false },
-]
+// Función para cargar datos sincronizados de oyentes
+async function loadListenersData(): Promise<any[]> {
+  try {
+    const dataPath = path.join(process.cwd(), 'data', 'listeners.json')
+    const data = await fs.readFile(dataPath, 'utf-8')
+    return JSON.parse(data)
+  } catch (error) {
+    console.error('Error loading listeners data:', error)
+    // Fallback a datos estáticos
+    return [
+      { 
+        id: "listener_1", 
+        name: "Carlos M.", 
+        avatar: "/placeholder-user.jpg", 
+        joinedAt: new Date().toISOString(),
+        location: "España"
+      },
+      { 
+        id: "listener_2", 
+        name: "Ana García", 
+        avatar: "/placeholder-user.jpg", 
+        joinedAt: new Date().toISOString(),
+        location: "México"
+      },
+      { 
+        id: "listener_3", 
+        name: "Luis Pérez", 
+        avatar: "/placeholder-user.jpg", 
+        joinedAt: new Date().toISOString(),
+        location: "Argentina"
+      }
+    ]
+  }
+}
 
 export async function GET() {
-  return NextResponse.json(listeners)
+  try {
+    const listeners = await loadListenersData()
+    return NextResponse.json(listeners)
+  } catch (error) {
+    console.error('Error in listeners API:', error)
+    return NextResponse.json([], { status: 500 })
+  }
 }
 
 export async function POST(request: Request) {
-  const body = await request.json()
+  try {
+    const body = await request.json()
+    const listeners = await loadListenersData()
 
-  // Add or update listener
-  if (body.action === "connect") {
-    const existingListener = listeners.find((l) => l.id === body.id)
-    if (existingListener) {
-      existingListener.connected = true
-    } else {
-      listeners.push({
-        id: body.id || Date.now(),
-        name: body.name || "Oyente",
-        avatar: body.avatar || "OY",
-        connected: true,
-      })
+    // Simular conexión/desconexión de oyentes
+    if (body.action === "connect") {
+      const newListener = {
+        id: `listener_${Date.now()}`,
+        name: body.name || `Oyente ${listeners.length + 1}`,
+        avatar: body.avatar || "/placeholder-user.jpg",
+        joinedAt: new Date().toISOString(),
+        location: body.location || "Desconocida"
+      }
+      
+      listeners.push(newListener)
+      
+      // Guardar datos actualizados
+      const dataPath = path.join(process.cwd(), 'data', 'listeners.json')
+      await fs.writeFile(dataPath, JSON.stringify(listeners, null, 2))
     }
-  } else if (body.action === "disconnect") {
-    const listener = listeners.find((l) => l.id === body.id)
-    if (listener) {
-      listener.connected = false
-    }
+
+    return NextResponse.json({ success: true, listeners })
+  } catch (error) {
+    console.error('Error updating listeners:', error)
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
   }
-
-  return NextResponse.json({ success: true, listeners })
 }

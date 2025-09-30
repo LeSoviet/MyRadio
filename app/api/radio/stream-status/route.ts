@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { promises as fs } from 'fs'
+import path from 'path'
 
 // Configuración del servidor Icecast
 const ICECAST_CONFIG = {
@@ -6,7 +8,20 @@ const ICECAST_CONFIG = {
   port: process.env.ICECAST_PORT || '8000',
   adminUser: process.env.ICECAST_ADMIN_USER || 'admin',
   adminPassword: process.env.ICECAST_ADMIN_PASSWORD || 'admin2024',
-  mountPoint: process.env.ICECAST_MOUNT_POINT || '/stream'
+  mountPoint: process.env.ICECAST_MOUNT_POINT || '/stream',
+  streamUrl: process.env.NEXT_PUBLIC_STREAM_URL || 'http://localhost:8000/stream'
+}
+
+// Función para cargar datos sincronizados
+async function loadStreamStatusData(): Promise<any> {
+  try {
+    const dataPath = path.join(process.cwd(), 'data', 'stream-status.json')
+    const data = await fs.readFile(dataPath, 'utf-8')
+    return JSON.parse(data)
+  } catch (error) {
+    console.error('Error loading stream status data:', error)
+    return null
+  }
 }
 
 // Tipos para la respuesta de Icecast
@@ -125,7 +140,28 @@ function calculateUptime(startTime: string): string {
 }
 
 async function getStreamStatus(): Promise<StreamStatus> {
-  // Verificar cache
+  // Intentar cargar datos sincronizados primero
+  const syncedData = await loadStreamStatusData()
+  
+  if (syncedData) {
+    return {
+      isOnline: syncedData.isOnline || false,
+      listeners: syncedData.listeners || 0,
+      peakListeners: syncedData.peakListeners || 0,
+      bitrate: syncedData.bitrate || 0,
+      currentTrack: syncedData.currentTrack || null,
+      streamUrl: ICECAST_CONFIG.streamUrl,
+      uptime: syncedData.uptime || '0m',
+      serverInfo: {
+        version: syncedData.serverInfo?.version || 'Unknown',
+        host: syncedData.serverInfo?.host || ICECAST_CONFIG.host,
+        location: syncedData.serverInfo?.location || 'Unknown'
+      },
+      lastUpdate: syncedData.lastUpdate || new Date().toISOString()
+    }
+  }
+
+  // Fallback: verificar cache
   const now = Date.now()
   if (statusCache && (now - lastCacheUpdate) < CACHE_DURATION) {
     return statusCache
@@ -140,7 +176,7 @@ async function getStreamStatus(): Promise<StreamStatus> {
     peakListeners: 0,
     bitrate: 0,
     currentTrack: null,
-    streamUrl: `http://${ICECAST_CONFIG.host}:${ICECAST_CONFIG.port}${ICECAST_CONFIG.mountPoint}`,
+    streamUrl: ICECAST_CONFIG.streamUrl,
     uptime: '0m',
     serverInfo: {
       version: 'Unknown',
@@ -159,7 +195,7 @@ async function getStreamStatus(): Promise<StreamStatus> {
     }
 
     // Buscar nuestro mount point
-    const source = icecastStats.source?.find(s => s.mount === ICECAST_CONFIG.mountPoint)
+    const source = icecastStats.source?.find((s: IcecastSource) => s.mount === ICECAST_CONFIG.mountPoint)
     
     if (source) {
       status.isOnline = true
@@ -202,7 +238,7 @@ export async function GET() {
         peakListeners: 0,
         bitrate: 0,
         currentTrack: null,
-        streamUrl: `http://${ICECAST_CONFIG.host}:${ICECAST_CONFIG.port}${ICECAST_CONFIG.mountPoint}`,
+        streamUrl: ICECAST_CONFIG.streamUrl,
         uptime: '0m',
         serverInfo: {
           version: 'Unknown',

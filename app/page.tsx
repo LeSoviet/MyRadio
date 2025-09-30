@@ -2,15 +2,17 @@
 
 import { useState, useEffect } from "react"
 import { RadioPlayer } from "@/components/radio-player"
-import { Playlist } from "@/components/playlist"
-import { Listeners } from "@/components/listeners"
 import { RadioVisualizer } from "@/components/radio-visualizer"
 import { AudioVisualizer } from "@/components/audio-visualizer"
-import { SocialShare } from "@/components/social-share"
-import { SongHistory } from "@/components/song-history"
-import { RadioStats } from "@/components/radio-stats"
-import { LiveReactions } from "@/components/live-reactions"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { Playlist } from "@/components/playlist"
+import { LiveReactions } from "@/components/live-reactions"
+import SocialShare from "@/components/social-share"
+import { RadioStats } from "@/components/radio-stats"
+import { SongHistory } from "@/components/song-history"
+import ActiveListeners from "@/components/active-listeners"
+import LikeSystem from "@/components/like-system"
+import LiveChat from "@/components/live-chat"
 import useSWR from "swr"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
@@ -20,29 +22,33 @@ export default function RadioPage() {
 
   // Obtener datos del stream en tiempo real
   const { data: currentTrackData, mutate: mutateCurrentTrack } = useSWR("/api/radio/current", fetcher, { 
-    refreshInterval: 3000,
+    refreshInterval: 10000,
     revalidateOnFocus: false
   })
 
   const { data: streamStatusData } = useSWR("/api/radio/stream-status", fetcher, {
-    refreshInterval: 5000,
+    refreshInterval: 30000,
     revalidateOnFocus: false
   })
 
   const { data: playlistData } = useSWR("/api/radio/playlist", fetcher, {
-    refreshInterval: 10000,
+    refreshInterval: 30000,
+    revalidateOnFocus: false
   })
 
   const { data: listenersData } = useSWR("/api/radio/listeners", fetcher, {
-    refreshInterval: 5000,
+    refreshInterval: 30000,
+    revalidateOnFocus: false
   })
 
   const { data: historyData } = useSWR("/api/radio/history", fetcher, {
-    refreshInterval: 10000,
+    refreshInterval: 60000,
+    revalidateOnFocus: false
   })
 
   const { data: statsData } = useSWR("/api/radio/stats", fetcher, {
-    refreshInterval: 15000,
+    refreshInterval: 60000,
+    revalidateOnFocus: false
   })
 
   // Sincronizar estado de reproducción con el stream
@@ -64,7 +70,7 @@ export default function RadioPage() {
     isLive: false
   }
 
-  const playlist = playlistData || []
+  const playlist = playlistData?.playlist || []
   const listeners = listenersData || []
   const history = historyData || []
   const stats = statsData || {
@@ -156,16 +162,37 @@ export default function RadioPage() {
             />
             <AudioVisualizer isPlaying={isPlaying} streamUrl={currentTrack.streamUrl} />
             <Playlist tracks={playlist} currentTrack={currentTrack} />
+            
+            {/* Social Features Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <ActiveListeners />
+              <LikeSystem 
+                currentTrack={currentTrack}
+                onLike={(trackId, isLiked) => {
+                  console.log(`Track ${trackId} ${isLiked ? 'liked' : 'unliked'}`)
+                }}
+              />
+            </div>
           </div>
 
           <div className="space-y-6">
-            <Listeners listeners={listeners} />
             <LiveReactions currentTrack={currentTrack} />
-            <SocialShare currentTrack={currentTrack} />
+            <SocialShare 
+              currentTrack={currentTrack}
+            />
             <RadioStats stats={stats} />
             <SongHistory history={history} />
           </div>
         </div>
+        
+        {/* Active Listeners Counter - Fixed Position */}
+        <ActiveListeners totalListeners={listeners.length} />
+        
+        {/* Live Chat - Fixed Position */}
+        <LiveChat 
+          currentTrack={currentTrack}
+          isVisible={false}
+        />
       </div>
     </main>
   )

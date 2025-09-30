@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server"
+import { promises as fs } from 'fs'
+import path from 'path'
 
 // Configuración del servidor Icecast
 const ICECAST_CONFIG = {
   host: process.env.ICECAST_HOST || 'localhost',
   port: process.env.ICECAST_PORT || '8000',
-  mountPoint: process.env.ICECAST_MOUNT_POINT || '/stream'
+  mountPoint: process.env.ICECAST_MOUNT_POINT || '/stream',
+  streamUrl: process.env.NEXT_PUBLIC_STREAM_URL || 'http://localhost:8000/stream'
 }
 
 // Tipos para la respuesta
@@ -19,6 +22,8 @@ interface CurrentTrack {
   listeners: number
   bitrate: number
   isLive: boolean
+  genre?: string
+  updatedAt: string
 }
 
 // Cache para evitar requests excesivos
@@ -26,9 +31,27 @@ let trackCache: CurrentTrack | null = null
 let lastCacheUpdate = 0
 const CACHE_DURATION = 3000 // 3 segundos
 
+async function loadSyncedData(): Promise<any> {
+  try {
+    const dataPath = path.join(process.cwd(), 'data', 'current.json')
+    const data = await fs.readFile(dataPath, 'utf-8')
+    return JSON.parse(data)
+  } catch (error) {
+    console.error('Error loading synced data:', error)
+    return null
+  }
+}
+
 async function fetchStreamStatus() {
   try {
-    const response = await fetch(`http://localhost:3000/api/radio/stream-status`, {
+    // Primero intentar cargar datos sincronizados
+    const syncedData = await loadSyncedData()
+    if (syncedData) {
+      return syncedData
+    }
+
+    // Fallback: intentar conectar directamente a Icecast
+    const response = await fetch(`http://${ICECAST_CONFIG.host}:${ICECAST_CONFIG.port}/status-json.xsl`, {
       signal: AbortSignal.timeout(5000)
     })
     
@@ -37,7 +60,25 @@ async function fetchStreamStatus() {
     }
     
     const data = await response.json()
-    return data.success ? data.data : null
+    
+    if (data.icestats && data.icestats.source) {
+      const source = Array.isArray(data.icestats.source) 
+        ? data.icestats.source[0] 
+        : data.icestats.source
+      
+      return {
+        title: source.title || 'Sin título',
+        artist: source.artist || 'Artista desconocido',
+        genre: source.genre || 'Música',
+        isLive: true,
+        listeners: parseInt(source.listeners) || 0,
+        bitrate: parseInt(source.bitrate) || 128,
+        sampleRate: parseInt(source.samplerate) || 44100,
+        updatedAt: new Date().toISOString()
+      }
+    }
+    
+    return null
   } catch (error) {
     console.error('Error fetching stream status:', error)
     return null
@@ -54,30 +95,34 @@ async function getCurrentTrack(): Promise<CurrentTrack> {
   const streamStatus = await fetchStreamStatus()
   
   let currentTrack: CurrentTrack = {
-    title: "Waiting for broadcast...",
+    title: "Esperando transmisión...",
     artist: "MyRadio",
     album: "",
     duration: 0,
     currentTime: 0,
     isPlaying: false,
-    streamUrl: `http://${ICECAST_CONFIG.host}:${ICECAST_CONFIG.port}${ICECAST_CONFIG.mountPoint}`,
+    streamUrl: ICECAST_CONFIG.streamUrl,
     listeners: 0,
     bitrate: 0,
-    isLive: false
+    isLive: false,
+    genre: "Música",
+    updatedAt: new Date().toISOString()
   }
 
-  if (streamStatus && streamStatus.isOnline) {
+  if (streamStatus) {
     currentTrack = {
-      title: streamStatus.currentTrack?.title || "Unknown Track",
-      artist: streamStatus.currentTrack?.artist || "Unknown Artist",
-      album: streamStatus.currentTrack?.album || "",
+      title: streamStatus.title || "Canción desconocida",
+      artist: streamStatus.artist || "Artista desconocido",
+      album: "", // No disponible en streams
       duration: 0, // No disponible en streams en vivo
       currentTime: 0, // No aplicable para streams en vivo
-      isPlaying: true,
-      streamUrl: streamStatus.streamUrl,
-      listeners: streamStatus.listeners,
-      bitrate: streamStatus.bitrate,
-      isLive: true
+      isPlaying: streamStatus.isLive || false,
+      streamUrl: ICECAST_CONFIG.streamUrl,
+      listeners: streamStatus.listeners || 0,
+      bitrate: streamStatus.bitrate || 128,
+      isLive: streamStatus.isLive || false,
+      genre: streamStatus.genre || "Música",
+      updatedAt: streamStatus.updatedAt || new Date().toISOString()
     }
   }
 
@@ -97,17 +142,19 @@ export async function GET() {
     
     // Fallback en caso de error
     return NextResponse.json({
-      title: "Service Unavailable",
+      title: "Servicio no disponible",
       artist: "MyRadio",
       album: "",
       duration: 0,
       currentTime: 0,
       isPlaying: false,
-      streamUrl: `http://${ICECAST_CONFIG.host}:${ICECAST_CONFIG.port}${ICECAST_CONFIG.mountPoint}`,
+      streamUrl: ICECAST_CONFIG.streamUrl,
       listeners: 0,
       bitrate: 0,
-      isLive: false
-    })
+      isLive: false,
+      genre: "Música",
+      updatedAt: new Date().toISOString()
+    }, { status: 503 })
   }
 }
 
